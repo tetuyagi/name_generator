@@ -1,4 +1,4 @@
-package com.example.NameGenerator
+package com.tyagi.name_generator
 
 import io.flutter.embedding.android.FlutterActivity
 
