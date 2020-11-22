@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:name_generator/models/name_builder.dart';
 
+const String titleName = "My Name Generator";
+const num fontSize = 18.0;
+const int generateNumber = 10;
+
 void main() {
   runApp(MyApp());
 }
@@ -10,7 +14,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Startup Name Generator',
+      title: titleName,
       home: RandomWords(),
     );
   }
@@ -23,14 +27,14 @@ class RandomWords extends StatefulWidget {
 
 class _RandomWordsState extends State<RandomWords> {
   final _suggestions = <String>[];
-  final _biggerFont = TextStyle(fontSize: 18.0);
+  final _biggerFont = TextStyle(fontSize: fontSize);
   final _builder = NameBuilder();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Startup Name Generator'),
+        title: Text(titleName),
       ),
       body: _buildSuggestions(),
     );
@@ -44,7 +48,7 @@ class _RandomWordsState extends State<RandomWords> {
 
           final index = i ~/ 2;
           if (index >= _suggestions.length) {
-            _suggestions.addAll(_builder.buildWords(10));
+            _suggestions.addAll(_builder.buildWords(generateNumber));
           }
           return _buildRow(_suggestions[index]);
         });
