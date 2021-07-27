@@ -4,10 +4,26 @@
     // 詳細情報は次を確認してください: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
-            "name": "name_generator",
+            "name": "Flutter Debug",
             "request": "launch",
-            "type": "dart"
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "--no-sound-null-safety"
+            ]
+        },
+        {
+            "name": "Flutter Test",
+            "type": "dart",
+            "request": "launch",
+            "mode": "test",
+            "program": "test/unit_test.dart",
+            "args": [
+                "--no-sound-null-safety"
+            ]
+
         }
     ]
 }

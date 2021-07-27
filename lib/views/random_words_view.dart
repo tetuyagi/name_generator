@@ -1,35 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:name_generator/models/admob/admob_interstitial_ad.dart';
+import 'package:name_generator/models/admob/admob_rewarded_ad.dart';
+import 'package:name_generator/models/admob/admob_banner_ad.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 // ignore: import_of_legacy_library_into_null_safe
-import 'package:firebase_admob/firebase_admob.dart';
 
 import 'package:name_generator/models/name_builder.dart';
-import 'package:name_generator/models/ad_manager.dart';
+import 'package:name_generator/models/admob/ad_manager.dart';
+import 'package:name_generator/models/constants.dart';
 
-const double fontSize = 18.0;
 const int generateNumber = 10;
+final ButtonStyle buttonStyle = TextButton.styleFrom(primary: Colors.white);
 
-class RandomWordsWidget extends StatefulWidget {
+class RandomWordsView extends StatefulWidget {
   final String titleName;
-  RandomWordsWidget({Key? key, required this.titleName}) : super(key: key);
+  RandomWordsView({Key? key, required this.titleName}) : super(key: key);
 
   @override
-  _RandomWordsWidgetState createState() => _RandomWordsWidgetState();
+  _RandomWordsViewState createState() => _RandomWordsViewState();
 }
 
-class _RandomWordsWidgetState extends State<RandomWordsWidget> {
+class _RandomWordsViewState extends State<RandomWordsView> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   final _suggestions = <String>[];
   final _saved = Set<String>();
-  final _biggerFont = TextStyle(fontSize: fontSize);
+
   final _builder = NameBuilder();
 
-  late BannerAd _bannerAd;
-  late InterstitialAd _interstitialAd;
+  //late BannerAd _bannerAd;
+  //late InterstitialAd _interstitialAd;
 
-  late bool _isInterstitialAdReady;
-  late bool _isRewardedAdReady;
+  //late bool _isInterstitialAdReady;
+  //late bool _isRewardedAdReady;
+  AdmobInterstitialAd? _interstitialAd;
+  AdmobBannerAd? _bannerAd;
+  AdmobRewardedAd? _rewardedAd;
 
   //初期化
   @override
@@ -37,34 +44,25 @@ class _RandomWordsWidgetState extends State<RandomWordsWidget> {
     print("init random words widget state");
     super.initState();
 
-    //バナー広告初期化
-    _bannerAd = BannerAd(
-      adUnitId: AdManager.bannerAdUnitId,
-      size: AdSize.banner,
-    );
+    AdManager.initialize();
+    String interstitialAdUnitId = AdManager.interstitialAdUnitId;
+    _interstitialAd = new AdmobInterstitialAd(interstitialAdUnitId);
+    _interstitialAd!.load();
 
-    _loadBannerAd();
+    String bannerAdUnitId = AdManager.bannerAdUnitId;
+    _bannerAd = AdmobBannerAd(bannerAdUnitId, size: AdSize.banner);
+    _bannerAd!.load();
 
-    //インタースティシャル広告初期化
-    _isInterstitialAdReady = false;
-    _interstitialAd = InterstitialAd(
-      adUnitId: AdManager.interstitialAdUnitId,
-      listener: _onInterstitialAdEvent,
-    );
-    _loadInterstitialAd();
-
-    //リワード広告初期化
-    _isRewardedAdReady = false;
-    RewardedVideoAd.instance.listener = _onRewardedAdEvent;
-    _loadRewardedAd();
+    String rewardedAdUnitId = AdManager.rewardedAdUnitId;
+    _rewardedAd = AdmobRewardedAd(rewardedAdUnitId);
   }
 
   //終了処理
-  @override
   void dispose() {
-    _bannerAd.dispose();
-    _interstitialAd.dispose();
-    RewardedVideoAd.instance.listener = null;
+    //_bannerAd.dispose();
+    //_interstitialAd.dispose();
+    //RewardedVideoAd.instance.listener = null;
+    _interstitialAd!.dispose();
 
     super.dispose();
   }
@@ -74,24 +72,33 @@ class _RandomWordsWidgetState extends State<RandomWordsWidget> {
     return Scaffold(
         key: _scaffoldKey,
         appBar: AppBar(title: Text(widget.titleName), actions: [
-          FlatButton(
+          TextButton(
             child: const Text('Interstitial'),
             onPressed: () {
               _onClickedInterstitialButton();
             },
+            style: buttonStyle,
           ),
-          FlatButton(
-              child: const Text('Rewarded'),
-              onPressed: () {
-                _onClickedRewardedButton();
-              }),
+          TextButton(
+            child: const Text('Rewarded'),
+            onPressed: () {
+              _onClickedRewardedButton();
+            },
+            style: buttonStyle,
+          ),
           IconButton(icon: Icon(Icons.list), onPressed: _pushSaved),
         ]),
-        body: FutureBuilder<void>(
-            future: _initAdMob(),
-            builder: (BuildContext context, AsyncSnapshot<void> snapshot) {
-              return _buildSuggestions();
-            }));
+        body: SafeArea(
+            child: Stack(
+                alignment: AlignmentDirectional.bottomCenter,
+                children: <Widget>[
+              _buildSuggestions(),
+              Container(
+                child: AdWidget(ad: _bannerAd!.ad),
+                width: _bannerAd!.ad.size.width.toDouble(),
+                height: _bannerAd!.ad.size.height.toDouble(),
+              ),
+            ])));
   }
 
   Widget _buildSuggestions() {
@@ -113,7 +120,7 @@ class _RandomWordsWidgetState extends State<RandomWordsWidget> {
     return ListTile(
         title: Text(
           word,
-          style: _biggerFont,
+          style: biggerFont,
         ),
         trailing: Icon(
           alreadySaved ? Icons.favorite : Icons.favorite_border,
@@ -130,123 +137,45 @@ class _RandomWordsWidgetState extends State<RandomWordsWidget> {
         });
   }
 
-  //AdMobの初期化
-  Future<void> _initAdMob() {
-    // Initialize AdMob SDK
-    return FirebaseAdMob.instance.initialize(appId: AdManager.appId);
-  }
-
-  //バナーのロードと表示
-  void _loadBannerAd() {
-    _bannerAd
-      ..load()
-      ..show(anchorType: AnchorType.bottom);
-  }
-
-  void _loadInterstitialAd() {
-    _interstitialAd.load();
-  }
-
-  void _loadRewardedAd() {
-    RewardedVideoAd.instance.load(
-      targetingInfo: MobileAdTargetingInfo(),
-      adUnitId: AdManager.rewardedAdUnitId,
-    );
-  }
-
-  void _onInterstitialAdEvent(MobileAdEvent event) {
-    switch (event) {
-      case MobileAdEvent.loaded:
-        _isInterstitialAdReady = true;
-        break;
-      case MobileAdEvent.failedToLoad:
-        //_isInterstitialAdReady = false;
-        print('Failed to load an interstitial ad');
-        break;
-      case MobileAdEvent.closed:
-        _moveToHome();
-        break;
-      default:
-        break;
-    }
-  }
-
-  void _onRewardedAdEvent(RewardedVideoAdEvent event,
-      {String rewardType = "", int rewardAmount = 0}) {
-    switch (event) {
-      case RewardedVideoAdEvent.loaded:
-        setState(() {
-          print("rewarded ad loaded");
-          _isRewardedAdReady = true;
-        });
-        break;
-      case RewardedVideoAdEvent.closed:
-        setState(() {
-          //_isRewardedAdReady = false;
-        });
-        break;
-      case RewardedVideoAdEvent.failedToLoad:
-        setState(() {
-          print("rewarded ad failed to load");
-          //_isRewardedAdReady = false;
-        });
-        break;
-      case RewardedVideoAdEvent.rewarded:
-        print("rewarded!");
-        break;
-
-      default:
-        break;
-    }
-  }
-
   void _moveToHome() {
     Navigator.pushNamedAndRemoveUntil(
         _scaffoldKey.currentContext!, '/', (_) => false);
   }
 
-  //button events
-
-  void _onClickedInterstitialButton() {
-    print("on clicked interstitial button");
-    if (_isInterstitialAdReady == true) {
-      print("show interstitial ad");
-      _interstitialAd.show();
-    }
+  void _showDialog(RewardItem reward) {
+    showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text("Got Reward!"),
+            content:
+                Text('you got reward item :   ${reward.amount} ${reward.type}'),
+            actions: [
+              TextButton(
+                child: Text("OK"),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          );
+        });
   }
 
-  void _onClickedRewardedButton() {
+  //button events
+
+  Future<void> _onClickedInterstitialButton() async {
+    print("on clicked interstitial button");
+    await _interstitialAd!.waitUntilReady();
+    _interstitialAd!.show();
+  }
+
+  Future<void> _onClickedRewardedButton() async {
     print("on clicked rewarded button");
-    if (_isRewardedAdReady == true) {
-      print("show rewarded ad");
-      RewardedVideoAd.instance.show();
-    } else {
-      print("reward ad is not ready");
-    }
+    await _rewardedAd!.load();
+    //await _rewardedAd!.waitUntilReady();
+    _rewardedAd!.show((reward) => _showDialog(reward));
   }
 
   void _pushSaved() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (BuildContext context) {
-        final tiles = _saved.map((String word) {
-          return ListTile(
-              title: Text(
-            word,
-            style: _biggerFont,
-          ));
-        });
-        final divided = ListTile.divideTiles(
-          context: context,
-          tiles: tiles,
-        ).toList();
-
-        return Scaffold(
-          appBar: AppBar(
-            title: Text('Saved Suggestions'),
-          ),
-          body: ListView(children: divided),
-        );
-      }),
-    );
+    Navigator.of(context).pushNamed('/saved', arguments: _saved);
   }
 }
